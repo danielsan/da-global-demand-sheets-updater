@@ -2,33 +2,12 @@ const fs = require('fs');
 const readline = require('readline');
 const { google } = require('googleapis');
 const { Client } = require('pg');
-let spreadsheetId;
-let sheetName;
-let redshiftConfig;
+const {redshiftConfig, googleSheetsConfig, googleApiCredentials} = require('./config');
+const {spreadsheetId, sheetName} = googleSheetsConfig;
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const TOKEN_PATH = 'config/token.json';
-let auth;
 let sheets;
 let valueInputOption = 'RAW';
-
-fs.readFile('config/credentials.json', (err, content) => {
-    if (err) return console.log('Error loading client secret file:', err);
-    authorizeGoogle(JSON.parse(content), authorization => {
-        auth = authorization;
-        sheets = google.sheets({ version: 'v4', auth });
-        connectRedshift();
-    });
-});
-
-fs.readFile('config/spreadsheet.json', (err, content) => {
-    if (err) return console.log('Error loading spreadsheet config:', err);
-    ({ spreadsheetId, sheetName } = JSON.parse(content));
-});
-
-fs.readFile('config/redshift.json', (err, content) => {
-    if (err) return console.log('Error loading redshift config:', err);
-    (redshiftConfig = JSON.parse(content));
-});
 
 function authorizeGoogle(credentials, callback) {
     const { client_secret, client_id, redirect_uris } = credentials.installed;
@@ -110,3 +89,8 @@ function setRows(rows) {
         }
     });
 }
+
+authorizeGoogle(googleApiCredentials, authorization => {
+    sheets = google.sheets({ version: 'v4', authorization });
+    connectRedshift();
+});
