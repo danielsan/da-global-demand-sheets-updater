@@ -1,31 +1,36 @@
 const fs = require('fs');
 const readline = require('readline');
 const { google } = require('googleapis');
+const { Client } = require('pg');
 let spreadsheetId;
 let sheetName;
+let redshiftConfig;
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-const TOKEN_PATH = 'token.json';
+const TOKEN_PATH = 'config/token.json';
 let auth;
 let sheets;
 let valueInputOption = 'RAW';
 
-fs.readFile('credentials.json', (err, content) => {
+fs.readFile('config/credentials.json', (err, content) => {
     if (err) return console.log('Error loading client secret file:', err);
-    authorize(JSON.parse(content), authorization => {
+    authorizeGoogle(JSON.parse(content), authorization => {
         auth = authorization;
         sheets = google.sheets({ version: 'v4', auth });
-        // listRows();
-        setRows();
+        connectRedshift();
     });
 });
 
-fs.readFile('spreadsheet.json', (err, content) => {
+fs.readFile('config/spreadsheet.json', (err, content) => {
     if (err) return console.log('Error loading spreadsheet config:', err);
-    ({spreadsheetId, sheetName} = JSON.parse(content));
+    ({ spreadsheetId, sheetName } = JSON.parse(content));
 });
 
+fs.readFile('config/redshift.json', (err, content) => {
+    if (err) return console.log('Error loading redshift config:', err);
+    (redshiftConfig = JSON.parse(content));
+});
 
-function authorize(credentials, callback) {
+function authorizeGoogle(credentials, callback) {
     const { client_secret, client_id, redirect_uris } = credentials.installed;
     const oAuth2Client = new google.auth.OAuth2(
         client_id, client_secret, redirect_uris[0]);
@@ -63,34 +68,38 @@ function getNewToken(oAuth2Client, callback) {
     });
 }
 
-function listRows() {
-    sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: `${sheetName}!A:B`,
-    }, (err, res) => {
-        if (err) return console.log('The API returned an error: ' + err);
-        const rows = res.data.values;
-        if (rows.length) {
-            console.log('A, B')
-            rows.map((row) => {
-                console.log(`${row[0]}, ${row[1]}`);
-            });
-        } else {
-            console.log('No data found.');
-        }
+function connectRedshift() {
+    const client = new Client(redshiftConfig);
+    client.connect().then(() => {
+        console.log('connected at '+new Date().toLocaleString());
+        client.query('SELECT * FROM custom.vw_global_demand WHERE date >= CURRENT_DATE -3 LIMIT 20')
+            .then(res => {
+                console.log("query done at "+new Date().toLocaleString());
+                console.log(res.rows);
+                client.end();
+                const rows = [['date','region','country','searches']];
+                for(row of res.rows){
+                    rows.push([row.date, row.region, row.country, row.searches])
+                }
+                setRows(rows);
+            })
+            .catch(e => {
+                console.log("query failed!");
+                console.log(e.stack);
+                client.end();
+            })
+        })
+        .catch (error => {
+        console.log(error)
     });
 }
 
-function setRows() {
-    let values = [
-        [
-            'newA1', 'newA2'
-        ]
-    ];
+function setRows(rows) {
+    let values = rows;
     const resource = { values };
     sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: 'A:B',
+        range: `${sheetName}!A:D`,
         valueInputOption,
         resource,
     }, (err, result) => {
