@@ -51,10 +51,9 @@ function connectRedshift() {
     const client = new Client(redshiftConfig);
     client.connect().then(() => {
         console.log('connected at '+new Date().toLocaleString());
-        client.query('SELECT * FROM custom.vw_global_demand WHERE date >= CURRENT_DATE -3 LIMIT 20')
+        client.query('SELECT * FROM custom.vw_global_demand')
             .then(res => {
                 console.log("query done at "+new Date().toLocaleString());
-                console.log(res.rows);
                 client.end();
                 const rows = [['date','region','country','searches']];
                 for(row of res.rows){
