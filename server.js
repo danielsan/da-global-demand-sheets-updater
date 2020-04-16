@@ -83,14 +83,14 @@ function setRows(rows) {
         resource,
     }, (err, result) => {
         if (err) {
-            console.log(err);
+            console.log(`Error updating google sheet: ${err}`);
         } else {
             console.log(`${result.data.updatedCells} cells updated.`);
         }
     });
 }
 
-authorizeGoogle(googleApiCredentials, authorization => {
-    sheets = google.sheets({ version: 'v4', authorization });
+authorizeGoogle(googleApiCredentials, auth => {
+    sheets = google.sheets({ version: 'v4', auth});
     connectRedshift();
 });
