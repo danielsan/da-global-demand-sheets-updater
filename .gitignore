@@ -109,3 +109,6 @@ dist
 # Config
 config/*
 !config/README.md
+
+# Environment variables defined in .env-dist.yml
+/env.yml

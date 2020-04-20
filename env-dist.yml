@@ -1,0 +1,4 @@
+# Environment variables
+
+LOG_SHORT: true
+LOG_NODATE: true
