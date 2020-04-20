@@ -1,0 +1,52 @@
+
+# https://github.com/serverless/serverless/blob/master/docs/providers/aws/guide/serverless.yml.md
+
+service: da-GlobalDemandSheetsUpdater
+
+provider:
+  name: aws
+  account: ${opt:account, '002584813484'}
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'prod'}
+  region: ${opt:region, 'us-west-2'}
+  versionFunctions: true
+  role: arn:aws:iam::${self:provider.account}:role/da-new-role
+  deploymentBucket: em-serverless-apps-${self:provider.region}-${self:provider.account}
+  memorySize: 128
+  timeout: 30
+  logRetentionInDays: 14
+  tags:
+    Name: da-GlobalDemandSheetsUpdater
+    Team: DataAnalyst
+    TeamCode: da
+    Project: ${self:service}
+    Application: ${self:service}
+    Environment: ${self:provider.stage}
+    Tenants: all
+    BilledTeam: DataAnalyst
+
+package:
+  individually: true
+  exclude:
+    - "*"
+    - ".*/**"
+    - "config/*"
+  include:
+    - "package.json"
+    - "index.js"
+
+functions:
+  da-GlobalDemandSheetsUpdater:
+    name: da-GlobalDemandSheetsUpdater
+    handler: index.handler
+    description: Description here
+    environment: ${file(env.yml)}
+    events:
+      - schedule:
+          rate: cron(30 20 ? * * *)
+          name: runs-every-day-at-8_30pm-UTC
+          description: 'Runs every day at 4:30 pm (EST)'
+    reservedConcurrency: 1
+
+plugins:
+  - serverless-aws-alias
