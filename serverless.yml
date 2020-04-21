@@ -41,6 +41,10 @@ functions:
     handler: index.handler
     description: Description here
     environment: ${file(env.yml)}
+    layers:
+      - ${cf:node-everymundo-packages-layer.LibLambdaLayerQualifiedArn}
+      - ${cf:node-googleapis-39-layer.LibLambdaLayerQualifiedArn}
+      - ${cf:node-pg-layer.LibLambdaLayerQualifiedArn}
     events:
       - schedule:
           rate: cron(30 20 ? * * *)
