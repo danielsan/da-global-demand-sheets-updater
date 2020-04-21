@@ -106,9 +106,8 @@ dist
 # DS_Store
 .DS_Store
 
-# Config
-config/*
-!config/README.md
+# GAPI Token
+token.json
 
 # Environment variables defined in .env-dist.yml
 /env.yml

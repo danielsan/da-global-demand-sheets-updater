@@ -45,7 +45,7 @@ functions:
       - schedule:
           rate: cron(30 20 ? * * *)
           name: runs-every-day-at-8_30pm-UTC
-          description: 'Runs every day at 4:30 pm (EST)'
+          description: 'Runs every day at 8:30 pm (EST)'
     reservedConcurrency: 1
 
 plugins:
