@@ -17,13 +17,13 @@ provider:
   logRetentionInDays: 14
   tags:
     Name: da-GlobalDemandSheetsUpdater
-    Team: DataAnalyst
+    Team: data-analytics
     TeamCode: da
     Project: ${self:service}
     Application: ${self:service}
     Environment: ${self:provider.stage}
     Tenants: all
-    BilledTeam: DataAnalyst
+    BilledTeam: data-analytics
 
 package:
   individually: true
