@@ -24,6 +24,14 @@ provider:
     Environment: ${self:provider.stage}
     Tenants: all
     BilledTeam: data-analytics
+  vpc:
+    subnetIds:
+      - subnet-b05fbed4
+      - subnet-27ea0f51
+      - subnet-7fa89926
+    securityGroupIds:
+      - sg-3c509e5b
+      - sg-b232b8d5
 
 package:
   individually: true
