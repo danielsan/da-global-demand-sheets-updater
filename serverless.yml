@@ -13,7 +13,7 @@ provider:
   role: arn:aws:iam::${self:provider.account}:role/da-new-role
   deploymentBucket: em-serverless-apps-${self:provider.region}-${self:provider.account}
   memorySize: 128
-  timeout: 30
+  timeout: 900
   logRetentionInDays: 14
   tags:
     Name: da-GlobalDemandSheetsUpdater
