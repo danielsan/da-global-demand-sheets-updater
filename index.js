@@ -16,13 +16,23 @@ const valueInputOption = 'RAW'
 
 const handler = async event => {
   logger.info({ event })
-  authorizeGoogle(googleApiCredentials, auth => {
-    sheets = google.sheets({ version: 'v4', auth })
-    connectRedshift()
-  })
+  const { data: auth, error } = await authorizeGoogle(googleApiCredentials)
+  if (error) {
+    console.log('Error authenticating: ' + error)
+    return
+  }
+  console.log('Google Auth done');
+  sheets = google.sheets({ version: 'v4', auth })
+  try {
+    await connectRedshift()
+  } catch (e) {
+    console.log(e)
+    return
+  }
+  return
 }
 
-const authorizeGoogle = (credentials, callback) => {
+const authorizeGoogle = async credentials => {
   const {
     installed: {
       client_secret: clientSecret,
@@ -30,17 +40,36 @@ const authorizeGoogle = (credentials, callback) => {
       redirect_uris: redirectUris
     }
   } = JSON.parse(credentials)
-  const oAuth2Client = new google.auth.OAuth2(
-    clientId, clientSecret, redirectUris[0])
-
-  fs.readFile(TOKEN_PATH, (err, token) => {
-    if (err) return getNewToken(oAuth2Client, callback)
+  const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUris[0])
+  let token
+  try {
+    token = fs.readFileSync(TOKEN_PATH)
+  } catch (e) {
+    console.log('Error reading tokens: ' + e)
+  }
+  if (token) {
     oAuth2Client.setCredentials(JSON.parse(token))
-    callback(oAuth2Client)
-  })
+    return {
+      data: oAuth2Client,
+      error: null
+    }
+  } else {
+    const { data: newoAuth2Client, error } = await getNewToken(oAuth2Client)
+    if (error) {
+      return {
+        data: null,
+        error: `Error grabbing new token: ${error}`
+      }
+    } else {
+      return {
+        data: newoAuth2Client,
+        error: null
+      }
+    }
+  }
 }
 
-const getNewToken = (oAuth2Client, callback) => {
+const getNewToken = async oAuth2Client => {
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES
@@ -50,62 +79,78 @@ const getNewToken = (oAuth2Client, callback) => {
     input: process.stdin,
     output: process.stdout
   })
-  rl.question('Enter the code from that page here: ', (code) => {
+  rl.question('Enter the code from that page here: ', async code => {
     rl.close()
-    oAuth2Client.getToken(code, (err, token) => {
-      if (err) return console.error('Error while trying to retrieve access token', err)
-      oAuth2Client.setCredentials(token)
-      // Save the token to file
-      fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
-        if (err) return console.error(err)
-        console.log('Token stored to', TOKEN_PATH)
-      })
-      callback(oAuth2Client)
-    })
-  })
-}
-
-const connectRedshift = () => {
-  redshiftConfig = JSON.parse(redshiftConfig)
-  const client = new Client(redshiftConfig)
-  client.connect().then(() => {
-    console.log('connected at ' + new Date().toLocaleString())
-    client.query('SELECT * FROM custom.vw_global_demand')
-      .then(res => {
-        console.log('query done at ' + new Date().toLocaleString())
-        client.end()
-        const rows = [['date', 'region', 'country', 'searches']]
-        for (const row of res.rows) {
-          rows.push([row.date, row.region, row.country, row.searches])
-        }
-        setRows(rows)
-      })
-      .catch(e => {
-        console.log('query failed!')
-        console.log(e.stack)
-        client.end()
-      })
-  })
-    .catch(error => {
-      console.log(error)
-    })
-}
-
-const setRows = (rows) => {
-  const values = rows
-  const resource = { values }
-  sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${sheetName}!A:D`,
-    valueInputOption,
-    resource
-  }, (err, result) => {
-    if (err) {
-      console.log(`Error updating google sheet: ${err}`)
-    } else {
-      console.log(`${result.data.updatedCells} cells updated.`)
+    let token
+    try {
+      const { tokens } = await oAuth2Client.getToken(code)
+      token = tokens
+    } catch (e) {
+      return {
+        data: null,
+        error: `Error grabbing token: ${e}`
+      }
+    }
+    oAuth2Client.setCredentials(token)
+    try {
+      fs.writeFileSync(TOKEN_PATH, JSON.stringify(token))
+      console.log('Token stored to', TOKEN_PATH)
+      return {
+        data: oAuth2Client,
+        error: null
+      }
+    } catch (e) {
+      return {
+        data: null,
+        error: `Error writing tokens to file: ${e}`
+      }
     }
   })
+}
+
+const connectRedshift = async () => {
+  redshiftConfig = JSON.parse(redshiftConfig)
+  const client = new Client(redshiftConfig)
+  await client.connect()
+  console.log('connected at ' + new Date().toLocaleString())
+  let res;
+  try {
+    res = await client.query('SELECT * FROM custom.vw_global_demand')
+  } catch (e) {
+    client.end()
+    return console.log(`Query failed! ${e.stack}`)
+  }
+  console.log('query done at ' + new Date().toLocaleString())
+  client.end()
+  const rows = [['date', 'region', 'country', 'searches']]
+  for (const row of res.rows) {
+    rows.push([row.date, row.region, row.country, row.searches])
+  }
+  try {
+    await setRows(rows)
+  } catch (e) {
+    return console.log(`Error setting rows: ${e}`)
+  }
+  return
+}
+
+const setRows = async rows => {
+  const values = rows
+  const resource = { values }
+  let result
+  try {
+    result = await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetName}!A:D`,
+      valueInputOption,
+      resource
+    })
+  } catch (e) {
+    return console.log(`Error updating spreadsheet: ${e}`)
+  }
+  if (result) {
+    return console.log(`${result.data.updatedCells} cells updated.`)
+  }
 }
 
 module.exports = { handler }
