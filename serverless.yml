@@ -1,7 +1,10 @@
 
 # https://github.com/serverless/serverless/blob/master/docs/providers/aws/guide/serverless.yml.md
 
-service: da-GlobalDemandSheetsUpdater
+service: da-GlobalDemandSheets
+
+plugins:
+  - serverless-aws-alias
 
 provider:
   name: aws
@@ -10,7 +13,7 @@ provider:
   stage: ${opt:stage, 'prod'}
   region: ${opt:region, 'us-west-2'}
   versionFunctions: true
-  role: arn:aws:iam::${self:provider.account}:role/da-new-role
+  role: arn:aws:iam::${self:provider.account}:role/${self:service}-${self:provider.stage}-role
   deploymentBucket: em-serverless-apps-${self:provider.region}-${self:provider.account}
   memorySize: 128
   timeout: 900
@@ -44,8 +47,7 @@ package:
     - "index.js"
 
 functions:
-  da-GlobalDemandSheetsUpdater:
-    name: da-GlobalDemandSheetsUpdater
+  updater:
     handler: index.handler
     description: Description here
     environment: ${file(env.yml)}
@@ -60,5 +62,3 @@ functions:
           description: 'Runs every day at 8:30 pm (EST)'
     reservedConcurrency: 1
 
-plugins:
-  - serverless-aws-alias
